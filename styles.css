@@ -1,5 +1,6 @@
 /* Modern Dark Glassmorphism CSS Design Tokens */
 :root {
+    color-scheme: dark;
     --bg-dark: #0B0F19;
     --bg-card: rgba(18, 24, 38, 0.85);
     --bg-card-hover: rgba(26, 34, 53, 0.95);
