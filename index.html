@@ -8,7 +8,7 @@
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700" rel="stylesheet">
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <!-- SheetJS & ExcelJS -->
@@ -84,46 +84,11 @@
                     </div>
                 </section>
 
-                <!-- Processing Rules Checklist -->
-                <section class="rules-card">
-                    <div class="rules-header">
-                        <h3><i data-lucide="sliders"></i> Reglas de Corrección</h3>
-                    </div>
-                    <div class="rules-grid">
-                        <label class="rule-checkbox">
-                            <input type="checkbox" id="rule-doc" checked>
-                            <span class="checkmark"></span>
-                            <div>
-                                <strong>Normalizar Tipo & Num Documento</strong>
-                            </div>
-                        </label>
-                        <label class="rule-checkbox">
-                            <input type="checkbox" id="rule-fecha" checked>
-                            <span class="checkmark"></span>
-                            <div>
-                                <strong>Estandarizar Fechas</strong>
-                            </div>
-                        </label>
-                        <label class="rule-checkbox">
-                            <input type="checkbox" id="rule-cups" checked>
-                            <span class="checkmark"></span>
-                            <div>
-                                <strong>Validación & Limpieza CUPS</strong>
-                            </div>
-                        </label>
-                        <label class="rule-checkbox">
-                            <input type="checkbox" id="rule-cie10" checked>
-                            <span class="checkmark"></span>
-                            <div>
-                                <strong>Normalización Diagnósticos CIE-10</strong>
-                            </div>
-                        </label>
-                    </div>
-                    <div class="actions-bar">
-                        <button class="btn btn-success btn-lg" id="btn-ejecutar" disabled>
-                            <i data-lucide="play-circle"></i> Ejecutar Corrección
-                        </button>
-                    </div>
+                <!-- Actions Bar -->
+                <section class="actions-bar" style="margin-bottom: 1.5rem; display: flex; justify-content: flex-end;">
+                    <button class="btn btn-success btn-lg" id="btn-ejecutar" disabled>
+                        <i data-lucide="play-circle"></i> Ejecutar Corrección Completa
+                    </button>
                 </section>
 
                 <!-- Processing Loader -->

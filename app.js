@@ -180,17 +180,12 @@ function parseCSVText(text) {
     return result;
 }
 
-// Correction Engine: Runs Standardization Rules
+// Correction Engine: Runs All Standard RIPS Correction Rules Automatically
 function runCorrectionPipeline() {
     if (!state.rawRows.length) return;
 
     showLoader('Ejecutando Pipeline de Limpieza & Corrección RIPS...');
     setTimeout(() => {
-        const ruleDoc = document.getElementById('rule-doc').checked;
-        const ruleFecha = document.getElementById('rule-fecha').checked;
-        const ruleCups = document.getElementById('rule-cups').checked;
-        const ruleCie10 = document.getElementById('rule-cie10').checked;
-
         state.cleanedRows = [];
         state.errorLog = [];
 
@@ -199,7 +194,6 @@ function runCorrectionPipeline() {
             const cleanedRow = { ...rawRow };
             let hasCorrection = false;
 
-            // 1. Get values helper
             const getVal = (keys) => {
                 for (let k of keys) {
                     for (let key in rawRow) {
@@ -210,96 +204,88 @@ function runCorrectionPipeline() {
             };
 
             // Document Type & Document Number Normalization
-            if (ruleDoc) {
-                const docTypeObj = getVal(['tipo_documento', 'tipodoc', 'tipo_doc', 'td']);
-                if (docTypeObj.val) {
-                    const normDocType = docTypeObj.val.toUpperCase().replace(/[^A-Z]/g, '');
-                    const validTypes = ['CC', 'TI', 'CE', 'PA', 'NV', 'CD', 'MS', 'RC'];
-                    const finalType = validTypes.includes(normDocType) ? normDocType : 'CC';
-                    if (docTypeObj.val !== finalType) {
-                        cleanedRow[docTypeObj.key] = finalType;
-                        hasCorrection = true;
-                        state.errorLog.push({
-                            fila: rowNum,
-                            campo: docTypeObj.key,
-                            original: docTypeObj.val,
-                            corregido: finalType,
-                            regla: 'Normalización de Tipo Documento RIPS'
-                        });
-                    }
+            const docTypeObj = getVal(['tipo_documento', 'tipodoc', 'tipo_doc', 'td']);
+            if (docTypeObj.val) {
+                const normDocType = docTypeObj.val.toUpperCase().replace(/[^A-Z]/g, '');
+                const validTypes = ['CC', 'TI', 'CE', 'PA', 'NV', 'CD', 'MS', 'RC'];
+                const finalType = validTypes.includes(normDocType) ? normDocType : 'CC';
+                if (docTypeObj.val !== finalType) {
+                    cleanedRow[docTypeObj.key] = finalType;
+                    hasCorrection = true;
+                    state.errorLog.push({
+                        fila: rowNum,
+                        campo: docTypeObj.key,
+                        original: docTypeObj.val,
+                        corregido: finalType,
+                        regla: 'Normalización de Tipo Documento RIPS'
+                    });
                 }
+            }
 
-                const docNumObj = getVal(['num_documento', 'documento', 'cedula', 'num_doc']);
-                if (docNumObj.val) {
-                    const normDocNum = docNumObj.val.replace(/[^0-9]/g, '');
-                    if (docNumObj.val !== normDocNum && normDocNum.length > 0) {
-                        cleanedRow[docNumObj.key] = normDocNum;
-                        hasCorrection = true;
-                        state.errorLog.push({
-                            fila: rowNum,
-                            campo: docNumObj.key,
-                            original: docNumObj.val,
-                            corregido: normDocNum,
-                            regla: 'Remoción de caracteres especiales en Documento'
-                        });
-                    }
+            const docNumObj = getVal(['num_documento', 'documento', 'cedula', 'num_doc']);
+            if (docNumObj.val) {
+                const normDocNum = docNumObj.val.replace(/[^0-9]/g, '');
+                if (docNumObj.val !== normDocNum && normDocNum.length > 0) {
+                    cleanedRow[docNumObj.key] = normDocNum;
+                    hasCorrection = true;
+                    state.errorLog.push({
+                        fila: rowNum,
+                        campo: docNumObj.key,
+                        original: docNumObj.val,
+                        corregido: normDocNum,
+                        regla: 'Remoción de caracteres especiales en Documento'
+                    });
                 }
             }
 
             // Date Standardization
-            if (ruleFecha) {
-                const fechaObj = getVal(['fecha_atencion', 'fecha', 'fechainicioatencion', 'fecha_servicio']);
-                if (fechaObj.val) {
-                    const stdDate = standardizeDate(fechaObj.val);
-                    if (stdDate && fechaObj.val !== stdDate) {
-                        cleanedRow[fechaObj.key] = stdDate;
-                        hasCorrection = true;
-                        state.errorLog.push({
-                            fila: rowNum,
-                            campo: fechaObj.key,
-                            original: fechaObj.val,
-                            corregido: stdDate,
-                            regla: 'Estandarización de Fecha a formato ISO YYYY-MM-DD'
-                        });
-                    }
+            const fechaObj = getVal(['fecha_atencion', 'fecha', 'fechainicioatencion', 'fecha_servicio']);
+            if (fechaObj.val) {
+                const stdDate = standardizeDate(fechaObj.val);
+                if (stdDate && fechaObj.val !== stdDate) {
+                    cleanedRow[fechaObj.key] = stdDate;
+                    hasCorrection = true;
+                    state.errorLog.push({
+                        fila: rowNum,
+                        campo: fechaObj.key,
+                        original: fechaObj.val,
+                        corregido: stdDate,
+                        regla: 'Estandarización de Fecha a formato ISO YYYY-MM-DD'
+                    });
                 }
             }
 
             // CUPS Sanitization
-            if (ruleCups) {
-                const cupsObj = getVal(['cod_cups', 'cups', 'cod_procedimiento', 'actividad']);
-                if (cupsObj.val) {
-                    const cleanCups = cupsObj.val.replace(/[^0-9A-Z]/gi, '').toUpperCase();
-                    if (cupsObj.val !== cleanCups) {
-                        cleanedRow[cupsObj.key] = cleanCups;
-                        hasCorrection = true;
-                        state.errorLog.push({
-                            fila: rowNum,
-                            campo: cupsObj.key,
-                            original: cupsObj.val,
-                            corregido: cleanCups,
-                            regla: 'Limpieza de código CUPS'
-                        });
-                    }
+            const cupsObj = getVal(['cod_cups', 'cups', 'cod_procedimiento', 'actividad']);
+            if (cupsObj.val) {
+                const cleanCups = cupsObj.val.replace(/[^0-9A-Z]/gi, '').toUpperCase();
+                if (cupsObj.val !== cleanCups) {
+                    cleanedRow[cupsObj.key] = cleanCups;
+                    hasCorrection = true;
+                    state.errorLog.push({
+                        fila: rowNum,
+                        campo: cupsObj.key,
+                        original: cupsObj.val,
+                        corregido: cleanCups,
+                        regla: 'Limpieza de código CUPS'
+                    });
                 }
             }
 
             // CIE-10 Normalization
-            if (ruleCie10) {
-                const cieObj = getVal(['cod_diagnostico', 'cie10', 'diagnostico_principal', 'diag_principal']);
-                if (cieObj.val) {
-                    const cleanCie = cieObj.val.replace(/[^0-9A-Z]/gi, '').toUpperCase();
-                    if (cieObj.val !== cleanCie) {
-                        cleanedRow[cieObj.key] = cleanCie;
-                        hasCorrection = true;
-                        state.errorLog.push({
-                            fila: rowNum,
-                            campo: cieObj.key,
-                            original: cieObj.val,
-                            corregido: cleanCie,
-                            regla: 'Normalización de Diagnóstico CIE-10'
-                        });
-                    }
+            const cieObj = getVal(['cod_diagnostico', 'cie10', 'diagnostico_principal', 'diag_principal']);
+            if (cieObj.val) {
+                const cleanCie = cieObj.val.replace(/[^0-9A-Z]/gi, '').toUpperCase();
+                if (cieObj.val !== cleanCie) {
+                    cleanedRow[cieObj.key] = cleanCie;
+                    hasCorrection = true;
+                    state.errorLog.push({
+                        fila: rowNum,
+                        campo: cieObj.key,
+                        original: cieObj.val,
+                        corregido: cleanCie,
+                        regla: 'Normalización de Diagnóstico CIE-10'
+                    });
                 }
             }
 
@@ -321,10 +307,8 @@ function standardizeDate(str) {
 
     if (parts.length === 3) {
         if (parts[0].length === 4) {
-            // YYYY-MM-DD
             return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
         } else if (parts[2].length === 4) {
-            // DD-MM-YYYY
             return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
         }
     }
@@ -340,7 +324,6 @@ function updateUI() {
 
     document.getElementById('kpi-total').textContent = total.toLocaleString();
     document.getElementById('kpi-corregidos').textContent = limpios.toLocaleString();
-    document.getElementById('kpi-corregidos-sub').textContent = `${corregidos} ajustes realizados`;
     document.getElementById('kpi-errores').textContent = corregidos.toLocaleString();
     document.getElementById('kpi-tasa').textContent = `${tasa}%`;
 
@@ -526,7 +509,6 @@ function loadSampleData() {
 function exportCleanedCSV() {
     if (!state.cleanedRows.length) return;
 
-    // Filter out internal metadata keys (_id, _hasCorrection)
     const exportRows = state.cleanedRows.map(row => {
         const clean = { ...row };
         delete clean._id;
@@ -561,7 +543,7 @@ async function exportLogExcel() {
         { header: 'CAMPO AFECTADO', key: 'campo', width: 25 },
         { header: 'VALOR ORIGINAL (CRUDO)', key: 'original', width: 30 },
         { header: 'VALOR CORREGIDO', key: 'corregido', width: 30 },
-        { header: 'REGLA APLICADA / INCONSISTENCIA', key: 'regla', width: 45 }
+        { header: 'REGLA APLICADA', key: 'regla', width: 45 }
     ];
 
     const headerRow = sheet.getRow(1);
