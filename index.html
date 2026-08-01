@@ -3,16 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pipeline de Corrección de Datos CSV (RIPS & Facturación)</title>
-    <meta name="description" content="Motor de limpieza, estandarización y corrección de inconsistencias en archivos CSV de RIPS y facturación clínica en Colombia.">
+    <title>Pipeline de Corrección de Datos CSV</title>
+    <meta name="description" content="Sistema de corrección de datos CSV y RIPS de facturación en salud.">
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- SheetJS & ExcelJS -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/exceljs@4.3.0/dist/exceljs.min.js"></script>
@@ -51,8 +49,8 @@
             <div class="system-status">
                 <div class="status-indicator online"></div>
                 <div class="status-info">
-                    <span class="status-title">Engine v2.5 Online</span>
-                    <span class="status-sub">Normativa RIPS Colombia</span>
+                    <span class="status-title">Motor Operativo</span>
+                    <span class="status-sub">RIPS / Facturación Salud</span>
                 </div>
             </div>
         </aside>
@@ -63,7 +61,6 @@
             <header class="top-header">
                 <div class="header-titles">
                     <h1 id="page-title">Pipeline de Corrección de Datos CSV</h1>
-                    <p id="page-subtitle">Sube tus archivos CSV, TSV o Excel crudos para normalizar documentos, fechas, códigos CUPS y CIE-10 de facturación en salud.</p>
                 </div>
                 <div class="header-actions">
                     <button class="btn btn-secondary" id="btn-load-sample">
@@ -82,8 +79,7 @@
                         <div class="drop-icon">
                             <i data-lucide="upload-cloud"></i>
                         </div>
-                        <h3>Arrastra tus archivos CSV o selecciona carpetas de FEV / RIPS</h3>
-                        <p>Soporta separadores por punto y coma (;), coma (,), tabulación (\t) y barra (|).</p>
+                        <h3>Arrastrar archivos CSV o seleccionar carpetas</h3>
                         <div class="file-tags" id="file-tags-list"></div>
                     </div>
                 </section>
@@ -91,7 +87,7 @@
                 <!-- Processing Rules Checklist -->
                 <section class="rules-card">
                     <div class="rules-header">
-                        <h3><i data-lucide="sliders"></i> Reglas de Estandarización & Limpieza Activas</h3>
+                        <h3><i data-lucide="sliders"></i> Reglas de Corrección</h3>
                     </div>
                     <div class="rules-grid">
                         <label class="rule-checkbox">
@@ -99,15 +95,13 @@
                             <span class="checkmark"></span>
                             <div>
                                 <strong>Normalizar Tipo & Num Documento</strong>
-                                <small>Remueve puntos/guiones y estandariza CC, TI, CE, PA, NV</small>
                             </div>
                         </label>
                         <label class="rule-checkbox">
                             <input type="checkbox" id="rule-fecha" checked>
                             <span class="checkmark"></span>
                             <div>
-                                <strong>Estandarizar Fechas (YYYY-MM-DD)</strong>
-                                <small>Corrige formatos mezclados (DD/MM/YYYY, YYYY/MM/DD)</small>
+                                <strong>Estandarizar Fechas</strong>
                             </div>
                         </label>
                         <label class="rule-checkbox">
@@ -115,7 +109,6 @@
                             <span class="checkmark"></span>
                             <div>
                                 <strong>Validación & Limpieza CUPS</strong>
-                                <small>Corrige ceros a la izquierda y elimina caracteres no numéricos</small>
                             </div>
                         </label>
                         <label class="rule-checkbox">
@@ -123,13 +116,12 @@
                             <span class="checkmark"></span>
                             <div>
                                 <strong>Normalización Diagnósticos CIE-10</strong>
-                                <small>Convierte a mayúsculas y valida códigos de 3-4 caracteres</small>
                             </div>
                         </label>
                     </div>
                     <div class="actions-bar">
                         <button class="btn btn-success btn-lg" id="btn-ejecutar" disabled>
-                            <i data-lucide="play-circle"></i> Ejecutar Pipeline de Corrección
+                            <i data-lucide="play-circle"></i> Ejecutar Corrección
                         </button>
                     </div>
                 </section>
@@ -138,7 +130,6 @@
                 <div id="loader" class="loader-overlay hidden">
                     <div class="spinner"></div>
                     <h4 id="loader-message">Procesando y corrigiendo archivo...</h4>
-                    <p id="loader-sub">Aplicando reglas de validación y limpieza RIPS...</p>
                 </div>
 
                 <!-- KPI Metrics Cards -->
@@ -148,15 +139,13 @@
                         <div class="kpi-data">
                             <span class="kpi-label">Registros Procesados</span>
                             <h3 id="kpi-total">0</h3>
-                            <span class="kpi-foot">100% de la muestra</span>
                         </div>
                     </div>
                     <div class="kpi-card green">
                         <div class="kpi-icon"><i data-lucide="check-circle-2"></i></div>
                         <div class="kpi-data">
-                            <span class="kpi-label">Registros Limpios / Corregidos</span>
+                            <span class="kpi-label">Registros Corregidos</span>
                             <h3 id="kpi-corregidos">0</h3>
-                            <span class="kpi-foot" id="kpi-corregidos-sub">Estandarizados con éxito</span>
                         </div>
                     </div>
                     <div class="kpi-card amber">
@@ -164,15 +153,13 @@
                         <div class="kpi-data">
                             <span class="kpi-label">Inconsistencias Detectadas</span>
                             <h3 id="kpi-errores">0</h3>
-                            <span class="kpi-foot">En el log de auditoría</span>
                         </div>
                     </div>
                     <div class="kpi-card purple">
                         <div class="kpi-icon"><i data-lucide="award"></i></div>
                         <div class="kpi-data">
-                            <span class="kpi-label">Tasa de Calidad de Datos</span>
+                            <span class="kpi-label">Tasa de Calidad</span>
                             <h3 id="kpi-tasa">100%</h3>
-                            <span class="kpi-foot">Índice de confiabilidad</span>
                         </div>
                     </div>
                 </section>
@@ -181,13 +168,13 @@
                 <section class="results-section">
                     <div class="results-header">
                         <div class="results-title">
-                            <h3><i data-lucide="table"></i> Vista Previa de Datos Limpios</h3>
+                            <h3><i data-lucide="table"></i> Detalle de Datos</h3>
                             <span class="badge badge-success" id="badge-count">0 registros</span>
                         </div>
                         <div class="results-controls">
                             <div class="search-box">
                                 <i data-lucide="search"></i>
-                                <input type="text" id="search-pipeline" placeholder="Buscar por documento, código CUPS, diagnóstico...">
+                                <input type="text" id="search-pipeline" placeholder="Buscar...">
                             </div>
                             <button class="btn btn-success" id="btn-export-csv" disabled>
                                 <i data-lucide="download"></i> Descargar CSV Corregido
@@ -216,7 +203,7 @@
                                 <tr>
                                     <td colspan="8" class="empty-table-msg">
                                         <i data-lucide="upload-cloud"></i>
-                                        <p>No hay datos procesados. Sube tus archivos CSV o carga los datos de prueba.</p>
+                                        <p>Sin datos procesados. Sube tus archivos o ejecuta la prueba.</p>
                                     </td>
                                 </tr>
                             </tbody>
@@ -245,7 +232,7 @@
                         <div class="results-controls">
                             <div class="search-box">
                                 <i data-lucide="search"></i>
-                                <input type="text" id="search-corregidos" placeholder="Buscar en datos limpios...">
+                                <input type="text" id="search-corregidos" placeholder="Buscar...">
                             </div>
                         </div>
                     </div>
@@ -284,13 +271,13 @@
                 <section class="results-section">
                     <div class="results-header">
                         <div class="results-title">
-                            <h3><i data-lucide="alert-triangle" style="color: #FBBF24"></i> Log Detallado de Inconsistencias & Errores</h3>
+                            <h3><i data-lucide="alert-triangle" style="color: #FBBF24"></i> Log de Inconsistencias</h3>
                             <span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #FBBF24" id="badge-log">0 errores</span>
                         </div>
                         <div class="results-controls">
                             <div class="search-box">
                                 <i data-lucide="search"></i>
-                                <input type="text" id="search-log" placeholder="Buscar en log de errores...">
+                                <input type="text" id="search-log" placeholder="Buscar...">
                             </div>
                         </div>
                     </div>
@@ -299,10 +286,10 @@
                             <thead>
                                 <tr>
                                     <th>FILA #</th>
-                                    <th>CAMPO AFECTADO</th>
-                                    <th>VALOR ORIGINAL (CRUDO)</th>
+                                    <th>CAMPO</th>
+                                    <th>VALOR ORIGINAL</th>
                                     <th>VALOR CORREGIDO</th>
-                                    <th>REGLA APLICADA / INCONSISTENCIA</th>
+                                    <th>REGLA APLICADA</th>
                                 </tr>
                             </thead>
                             <tbody id="table-body-log">
