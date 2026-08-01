@@ -100,6 +100,11 @@ async function handleFilesSelect(files) {
 
     document.getElementById('btn-ejecutar').disabled = state.rawRows.length === 0;
     hideLoader();
+
+    // Auto-ejecutar pipeline si hay datos
+    if (state.rawRows.length > 0) {
+        runCorrectionPipeline();
+    }
 }
 
 // File Parsing Supporting Excel & Delimited Text
@@ -138,7 +143,10 @@ async function parseFile(file) {
             return parseCSVText(await file.text());
         }
     } else {
-        const text = await file.text();
+        // Use FileReader for better encoding support (e.g., ISO-8859-1 for RIPS)
+        const arrayBuffer = await file.arrayBuffer();
+        const decoder = new TextDecoder('iso-8859-1');
+        const text = decoder.decode(arrayBuffer);
         return parseCSVText(text);
     }
 }
@@ -194,6 +202,7 @@ function runCorrectionPipeline() {
             const cleanedRow = { ...rawRow };
             let hasCorrection = false;
 
+            // Helper para obtener el valor de una columna buscando variantes
             const getVal = (keys) => {
                 for (let k of keys) {
                     for (let key in rawRow) {
@@ -203,90 +212,116 @@ function runCorrectionPipeline() {
                 return { key: '', val: '' };
             };
 
-            // Document Type & Document Number Normalization
-            const docTypeObj = getVal(['tipo_documento', 'tipodoc', 'tipo_doc', 'td']);
+            const logError = (campo, original, corregido, regla) => {
+                hasCorrection = true;
+                state.errorLog.push({
+                    fila: rowNum,
+                    campo: campo,
+                    original: original,
+                    corregido: corregido,
+                    regla: regla
+                });
+            };
+
+            // Referencias a campos comunes RIPS
+            const docTypeObj = getVal(['tipoDocumentoIdentificacion', 'tipo_documento', 'tipodoc', 'tipo_doc', 'td']);
+            const docNumObj = getVal(['numDocumentoIdentificacion', 'num_documento', 'documento', 'cedula', 'num_doc']);
+            const fechaObj = getVal(['fechaInicioAtencion', 'fecha_atencion', 'fecha', 'fechainicioatencion', 'fecha_servicio']);
+            const cupsObj = getVal(['codTecnologiaSalud', 'codProcedimiento', 'cod_cups', 'cups', 'cod_procedimiento', 'actividad']);
+            const cieObj = getVal(['codDiagnosticoPrincipal', 'cod_diagnostico', 'cie10', 'diagnostico_principal', 'diag_principal']);
+            const finalidadObj = getVal(['finalidadTecnologiaSalud', 'finalidad']);
+            const causaObj = getVal(['causaMotivoAtencion', 'causa']);
+            const sexoObj = getVal(['codSexo', 'sexo']);
+            const tipoRegistroObj = getVal(['tipoRegistro', 'tipo_registro']);
+
+            // 1. Normalización Documento
             if (docTypeObj.val) {
                 const normDocType = docTypeObj.val.toUpperCase().replace(/[^A-Z]/g, '');
                 const validTypes = ['CC', 'TI', 'CE', 'PA', 'NV', 'CD', 'MS', 'RC'];
                 const finalType = validTypes.includes(normDocType) ? normDocType : 'CC';
                 if (docTypeObj.val !== finalType) {
                     cleanedRow[docTypeObj.key] = finalType;
-                    hasCorrection = true;
-                    state.errorLog.push({
-                        fila: rowNum,
-                        campo: docTypeObj.key,
-                        original: docTypeObj.val,
-                        corregido: finalType,
-                        regla: 'Normalización de Tipo Documento RIPS'
-                    });
+                    logError(docTypeObj.key, docTypeObj.val, finalType, 'Normalización de Tipo Documento');
                 }
             }
 
-            const docNumObj = getVal(['num_documento', 'documento', 'cedula', 'num_doc']);
             if (docNumObj.val) {
                 const normDocNum = docNumObj.val.replace(/[^0-9]/g, '');
                 if (docNumObj.val !== normDocNum && normDocNum.length > 0) {
                     cleanedRow[docNumObj.key] = normDocNum;
-                    hasCorrection = true;
-                    state.errorLog.push({
-                        fila: rowNum,
-                        campo: docNumObj.key,
-                        original: docNumObj.val,
-                        corregido: normDocNum,
-                        regla: 'Remoción de caracteres especiales en Documento'
-                    });
+                    logError(docNumObj.key, docNumObj.val, normDocNum, 'Remoción de caracteres en Documento');
                 }
             }
 
-            // Date Standardization
-            const fechaObj = getVal(['fecha_atencion', 'fecha', 'fechainicioatencion', 'fecha_servicio']);
-            if (fechaObj.val) {
-                const stdDate = standardizeDate(fechaObj.val);
-                if (stdDate && fechaObj.val !== stdDate) {
-                    cleanedRow[fechaObj.key] = stdDate;
-                    hasCorrection = true;
-                    state.errorLog.push({
-                        fila: rowNum,
-                        campo: fechaObj.key,
-                        original: fechaObj.val,
-                        corregido: stdDate,
-                        regla: 'Estandarización de Fecha a formato ISO YYYY-MM-DD'
-                    });
-                }
-            }
-
-            // CUPS Sanitization
-            const cupsObj = getVal(['cod_cups', 'cups', 'cod_procedimiento', 'actividad']);
+            // 2. Normalización de Ceros en CUPS / codTecnologiaSalud
             if (cupsObj.val) {
-                const cleanCups = cupsObj.val.replace(/[^0-9A-Z]/gi, '').toUpperCase();
+                let cleanCups = cupsObj.val.replace(/[^0-9A-Z]/gi, '').toUpperCase();
+                
+                // Si el CUPS es numerico y tiene ceros iniciales pero la longitud no requiere esos ceros
+                if (/^[0-9]+$/.test(cupsObj.val)) {
+                     cleanCups = String(parseInt(cupsObj.val, 10)); // Eliminar ceros iniciales según script original
+                }
+                
                 if (cupsObj.val !== cleanCups) {
                     cleanedRow[cupsObj.key] = cleanCups;
-                    hasCorrection = true;
-                    state.errorLog.push({
-                        fila: rowNum,
-                        campo: cupsObj.key,
-                        original: cupsObj.val,
-                        corregido: cleanCups,
-                        regla: 'Limpieza de código CUPS'
-                    });
+                    logError(cupsObj.key, cupsObj.val, cleanCups, 'Limpieza codTecnologiaSalud sin ceros a la izquierda');
+                    cupsObj.val = cleanCups; // Update for further rules
                 }
             }
 
-            // CIE-10 Normalization
-            const cieObj = getVal(['cod_diagnostico', 'cie10', 'diagnostico_principal', 'diag_principal']);
+            // 3. Normalización Diagnósticos
             if (cieObj.val) {
                 const cleanCie = cieObj.val.replace(/[^0-9A-Z]/gi, '').toUpperCase();
                 if (cieObj.val !== cleanCie) {
                     cleanedRow[cieObj.key] = cleanCie;
-                    hasCorrection = true;
-                    state.errorLog.push({
-                        fila: rowNum,
-                        campo: cieObj.key,
-                        original: cieObj.val,
-                        corregido: cleanCie,
-                        regla: 'Normalización de Diagnóstico CIE-10'
-                    });
+                    logError(cieObj.key, cieObj.val, cleanCie, 'Normalización de Diagnóstico CIE-10');
+                    cieObj.val = cleanCie; // Update for further rules
                 }
+            }
+
+            // 4. Regla: causaMotivoAtencion 40 (Finalidad 11 y Causa 38)
+            if (tipoRegistroObj.val === 'consultas' || (!tipoRegistroObj.val && finalidadObj.val === '11' && causaObj.val === '38')) {
+                if (finalidadObj.val === '11' && causaObj.val === '38') {
+                    cleanedRow[causaObj.key] = '40';
+                    logError(causaObj.key, causaObj.val, '40', 'Causa 38 -> 40 por Finalidad 11');
+                }
+            }
+
+            // 5. Regla: corregir_finalidades_por_diagnostico (Procedimientos)
+            if ((tipoRegistroObj.val === 'procedimientos' || (!tipoRegistroObj.val && cupsObj.val)) && finalidadObj.val === '11') {
+                let diag = cieObj.val || '';
+                let proc = cupsObj.val || '';
+                let diagZ30 = diag.startsWith('Z30');
+                let diagZ31 = diag.startsWith('Z31');
+                let isZ32toZ36 = diag.match(/^Z3[2-6]/);
+                
+                let newFinalidad = null;
+                
+                if (diagZ30) newFinalidad = '19';
+                else if (diagZ31) newFinalidad = '22';
+                else if (isZ32toZ36) newFinalidad = '23';
+                else if (proc.startsWith('990')) newFinalidad = '40';
+                else if (proc.startsWith('992') || proc.startsWith('997')) newFinalidad = '14';
+                else if (proc.startsWith('90') && diag.startsWith('Z')) newFinalidad = '15';
+                else if (proc.startsWith('90') && !diag.startsWith('Z') && diag !== '') newFinalidad = '12';
+
+                if (newFinalidad) {
+                    cleanedRow[finalidadObj.key] = newFinalidad;
+                    logError(finalidadObj.key, finalidadObj.val, newFinalidad, 'Ajuste de finalidad según diagnóstico/procedimiento');
+                    finalidadObj.val = newFinalidad; // update
+                }
+            }
+            
+            // Regla: Finalidad 25 -> Causa 42
+            if (finalidadObj.val === '25' && causaObj.key && causaObj.val !== '42') {
+                cleanedRow[causaObj.key] = '42';
+                logError(causaObj.key, causaObj.val, '42', 'Finalidad 25 requiere Causa 42');
+            }
+
+            // 6. Regla: corregir_sexo_por_reglas (Finalidad 23 -> Sexo F)
+            if (finalidadObj.val === '23' && sexoObj.key && sexoObj.val !== 'F') {
+                cleanedRow[sexoObj.key] = 'F';
+                logError(sexoObj.key, sexoObj.val, 'F', 'Finalidad 23 implica sexo Femenino (F)');
             }
 
             cleanedRow._hasCorrection = hasCorrection;
@@ -297,22 +332,6 @@ function runCorrectionPipeline() {
         updateUI();
         hideLoader();
     }, 600);
-}
-
-// Date Parser: Converts DD/MM/YYYY or YYYY/MM/DD to YYYY-MM-DD
-function standardizeDate(str) {
-    if (!str) return '';
-    const clean = str.trim().replace(/\//g, '-');
-    const parts = clean.split('-');
-
-    if (parts.length === 3) {
-        if (parts[0].length === 4) {
-            return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
-        } else if (parts[2].length === 4) {
-            return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-        }
-    }
-    return str;
 }
 
 // Update UI & KPI Cards
@@ -406,12 +425,12 @@ function renderTabTable(tabKey) {
                 return '-';
             };
 
-            const docType = getField(['tipo_documento', 'tipodoc', 'td']) || 'CC';
-            const docNum = getField(['num_documento', 'documento', 'cedula']);
+            const docType = getField(['tipoDocumentoIdentificacion', 'tipo_documento', 'tipodoc', 'td']) || 'CC';
+            const docNum = getField(['numDocumentoIdentificacion', 'num_documento', 'documento', 'cedula']);
             const nombre = getField(['nombre_afiliado', 'nombre', 'paciente']) || `AFILIADO #${row._id}`;
-            const cups = getField(['cod_cups', 'cups', 'actividad']) || '890201';
-            const cie10 = getField(['cod_diagnostico', 'cie10', 'diagnostico_principal']) || 'I10X';
-            const fecha = getField(['fecha_atencion', 'fecha', 'fecha_servicio']) || '2026-07-15';
+            const cups = getField(['codTecnologiaSalud', 'codProcedimiento', 'cod_cups', 'cups', 'actividad']) || '890201';
+            const cie10 = getField(['codDiagnosticoPrincipal', 'cod_diagnostico', 'cie10', 'diagnostico_principal']) || 'I10X';
+            const fecha = getField(['fechaInicioAtencion', 'fecha_atencion', 'fecha', 'fecha_servicio']) || '2026-07-15';
 
             const statusBadge = row._hasCorrection 
                 ? '<span class="badge badge-success">Corregido & Limpio</span>'
@@ -483,19 +502,24 @@ function loadSampleData() {
     setTimeout(() => {
         const sampleRows = [];
         const docTypesRaw = ['cc.', 'T.I', 'C.E.', 'CC', 'ti', 'PA'];
-        const cupsRaw = ['890.201', '890201', '890-202', ' 890301 ', '890201'];
-        const cie10Raw = ['i10x', 'I10.X', 'e119', 'E11.9', 'j00x'];
-        const fechasRaw = ['15/07/2026', '2026/07/16', '17-07-2026', '2026-07-18', '19/07/2026'];
+        const cupsRaw = ['890.201', '0890201', '890-202', ' 890301 ', '890201', '000892'];
+        const cie10Raw = ['i10x', 'I10.X', 'z300', 'Z310', 'j00x'];
+        const finalidadRaw = ['11', '11', '11', '23', '25'];
+        const causaRaw = ['38', '38', '01', '01', '01'];
+        const sexoRaw = ['M', 'F', 'M', 'M', 'M'];
 
         for (let i = 1; i <= 2500; i++) {
             const isFlawed = i % 2 === 0;
             sampleRows.push({
-                tipo_documento: isFlawed ? docTypesRaw[i % docTypesRaw.length] : 'CC',
-                num_documento: isFlawed ? `1.144.0${i + 100}-A` : `11440${i + 100}`,
+                tipoDocumentoIdentificacion: isFlawed ? docTypesRaw[i % docTypesRaw.length] : 'CC',
+                numDocumentoIdentificacion: isFlawed ? `1.144.0${i + 100}-A` : `11440${i + 100}`,
                 nombre_afiliado: `PACIENTE RIPS DEMO #${i}`,
-                cod_cups: isFlawed ? cupsRaw[i % cupsRaw.length] : '890201',
-                cod_diagnostico: isFlawed ? cie10Raw[i % cie10Raw.length] : 'I10X',
-                fecha_atencion: isFlawed ? fechasRaw[i % fechasRaw.length] : '2026-07-15'
+                codTecnologiaSalud: isFlawed ? cupsRaw[i % cupsRaw.length] : '890201',
+                codDiagnosticoPrincipal: isFlawed ? cie10Raw[i % cie10Raw.length] : 'I10X',
+                finalidadTecnologiaSalud: isFlawed ? finalidadRaw[i % finalidadRaw.length] : '10',
+                causaMotivoAtencion: isFlawed ? causaRaw[i % causaRaw.length] : '01',
+                codSexo: isFlawed ? sexoRaw[i % sexoRaw.length] : 'F',
+                tipoRegistro: 'consultas'
             });
         }
 
