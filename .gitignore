@@ -1,0 +1,29 @@
+# Python & PyCache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Temporary Office / Excel Lock Files
+~$*
+
+# Exclude all private patient CSV & Log files
+factura_corregida/*
+!factura_corregida/.gitkeep
+fuente/*
+!fuente/.gitkeep
+historial/*
+!historial/.gitkeep
+log_errores/*
+!log_errores/.gitkeep
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Environment
+.env
+.venv
+env/
+venv/
