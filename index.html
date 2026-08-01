@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pipeline de Corrección de Datos CSV (RIPS & Facturación)</title>
+    <meta name="description" content="Motor de limpieza, estandarización y corrección de inconsistencias en archivos CSV de RIPS y facturación clínica en Colombia.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SheetJS & ExcelJS -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/exceljs@4.3.0/dist/exceljs.min.js"></script>
+    <!-- Stylesheet -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="logo-icon">
+                    <i data-lucide="filter"></i>
+                </div>
+                <div class="brand-text">
+                    <h2>Corrección <span>CSV</span></h2>
+                    <p>Pipeline RIPS & Salud</p>
+                </div>
+            </div>
+
+            <nav class="nav-menu">
+                <button class="nav-btn active" data-tab="pipeline">
+                    <i data-lucide="sparkles"></i>
+                    <span>Motor de Corrección</span>
+                </button>
+                <button class="nav-btn" data-tab="corregidos">
+                    <i data-lucide="file-check"></i>
+                    <span>Datos Corregidos</span>
+                </button>
+                <button class="nav-btn" data-tab="log">
+                    <i data-lucide="alert-triangle"></i>
+                    <span>Log de Inconsistencias</span>
+                </button>
+            </nav>
+
+            <div class="system-status">
+                <div class="status-indicator online"></div>
+                <div class="status-info">
+                    <span class="status-title">Engine v2.5 Online</span>
+                    <span class="status-sub">Normativa RIPS Colombia</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Header Banner -->
+            <header class="top-header">
+                <div class="header-titles">
+                    <h1 id="page-title">Pipeline de Corrección de Datos CSV</h1>
+                    <p id="page-subtitle">Sube tus archivos CSV, TSV o Excel crudos para normalizar documentos, fechas, códigos CUPS y CIE-10 de facturación en salud.</p>
+                </div>
+                <div class="header-actions">
+                    <button class="btn btn-secondary" id="btn-load-sample">
+                        <i data-lucide="zap"></i> Cargar Datos de Prueba
+                    </button>
+                </div>
+            </header>
+
+            <!-- Tab: Pipeline Main View -->
+            <div id="tab-pipeline" class="tab-content active">
+
+                <!-- Upload Section -->
+                <section class="upload-card">
+                    <div class="upload-dropzone" id="main-dropzone" onclick="document.getElementById('file-input').click()">
+                        <input type="file" id="file-input" accept=".csv, .tsv, .txt, .xlsx, .xls" multiple hidden>
+                        <div class="drop-icon">
+                            <i data-lucide="upload-cloud"></i>
+                        </div>
+                        <h3>Arrastra tus archivos CSV o selecciona carpetas de FEV / RIPS</h3>
+                        <p>Soporta separadores por punto y coma (;), coma (,), tabulación (\t) y barra (|).</p>
+                        <div class="file-tags" id="file-tags-list"></div>
+                    </div>
+                </section>
+
+                <!-- Processing Rules Checklist -->
+                <section class="rules-card">
+                    <div class="rules-header">
+                        <h3><i data-lucide="sliders"></i> Reglas de Estandarización & Limpieza Activas</h3>
+                    </div>
+                    <div class="rules-grid">
+                        <label class="rule-checkbox">
+                            <input type="checkbox" id="rule-doc" checked>
+                            <span class="checkmark"></span>
+                            <div>
+                                <strong>Normalizar Tipo & Num Documento</strong>
+                                <small>Remueve puntos/guiones y estandariza CC, TI, CE, PA, NV</small>
+                            </div>
+                        </label>
+                        <label class="rule-checkbox">
+                            <input type="checkbox" id="rule-fecha" checked>
+                            <span class="checkmark"></span>
+                            <div>
+                                <strong>Estandarizar Fechas (YYYY-MM-DD)</strong>
+                                <small>Corrige formatos mezclados (DD/MM/YYYY, YYYY/MM/DD)</small>
+                            </div>
+                        </label>
+                        <label class="rule-checkbox">
+                            <input type="checkbox" id="rule-cups" checked>
+                            <span class="checkmark"></span>
+                            <div>
+                                <strong>Validación & Limpieza CUPS</strong>
+                                <small>Corrige ceros a la izquierda y elimina caracteres no numéricos</small>
+                            </div>
+                        </label>
+                        <label class="rule-checkbox">
+                            <input type="checkbox" id="rule-cie10" checked>
+                            <span class="checkmark"></span>
+                            <div>
+                                <strong>Normalización Diagnósticos CIE-10</strong>
+                                <small>Convierte a mayúsculas y valida códigos de 3-4 caracteres</small>
+                            </div>
+                        </label>
+                    </div>
+                    <div class="actions-bar">
+                        <button class="btn btn-success btn-lg" id="btn-ejecutar" disabled>
+                            <i data-lucide="play-circle"></i> Ejecutar Pipeline de Corrección
+                        </button>
+                    </div>
+                </section>
+
+                <!-- Processing Loader -->
+                <div id="loader" class="loader-overlay hidden">
+                    <div class="spinner"></div>
+                    <h4 id="loader-message">Procesando y corrigiendo archivo...</h4>
+                    <p id="loader-sub">Aplicando reglas de validación y limpieza RIPS...</p>
+                </div>
+
+                <!-- KPI Metrics Cards -->
+                <section class="kpi-grid">
+                    <div class="kpi-card blue">
+                        <div class="kpi-icon"><i data-lucide="file-text"></i></div>
+                        <div class="kpi-data">
+                            <span class="kpi-label">Registros Procesados</span>
+                            <h3 id="kpi-total">0</h3>
+                            <span class="kpi-foot">100% de la muestra</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card green">
+                        <div class="kpi-icon"><i data-lucide="check-circle-2"></i></div>
+                        <div class="kpi-data">
+                            <span class="kpi-label">Registros Limpios / Corregidos</span>
+                            <h3 id="kpi-corregidos">0</h3>
+                            <span class="kpi-foot" id="kpi-corregidos-sub">Estandarizados con éxito</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card amber">
+                        <div class="kpi-icon"><i data-lucide="alert-triangle"></i></div>
+                        <div class="kpi-data">
+                            <span class="kpi-label">Inconsistencias Detectadas</span>
+                            <h3 id="kpi-errores">0</h3>
+                            <span class="kpi-foot">En el log de auditoría</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card purple">
+                        <div class="kpi-icon"><i data-lucide="award"></i></div>
+                        <div class="kpi-data">
+                            <span class="kpi-label">Tasa de Calidad de Datos</span>
+                            <h3 id="kpi-tasa">100%</h3>
+                            <span class="kpi-foot">Índice de confiabilidad</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Preview Section -->
+                <section class="results-section">
+                    <div class="results-header">
+                        <div class="results-title">
+                            <h3><i data-lucide="table"></i> Vista Previa de Datos Limpios</h3>
+                            <span class="badge badge-success" id="badge-count">0 registros</span>
+                        </div>
+                        <div class="results-controls">
+                            <div class="search-box">
+                                <i data-lucide="search"></i>
+                                <input type="text" id="search-pipeline" placeholder="Buscar por documento, código CUPS, diagnóstico...">
+                            </div>
+                            <button class="btn btn-success" id="btn-export-csv" disabled>
+                                <i data-lucide="download"></i> Descargar CSV Corregido
+                            </button>
+                            <button class="btn btn-primary" id="btn-export-log-excel" disabled>
+                                <i data-lucide="file-spreadsheet"></i> Descargar Log Excel
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="table-wrapper">
+                        <table class="data-table">
+                            <thead>
+                                <tr id="table-head-row">
+                                    <th>#</th>
+                                    <th>TIPO DOC</th>
+                                    <th>DOCUMENTO</th>
+                                    <th>AFILIADO</th>
+                                    <th>COD CUPS</th>
+                                    <th>DIAGNÓSTICO CIE-10</th>
+                                    <th>FECHA ATENCIÓN</th>
+                                    <th>ESTADO CORRECCIÓN</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-body">
+                                <tr>
+                                    <td colspan="8" class="empty-table-msg">
+                                        <i data-lucide="upload-cloud"></i>
+                                        <p>No hay datos procesados. Sube tus archivos CSV o carga los datos de prueba.</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="pagination-bar">
+                        <span id="page-info">Mostrando 0 registros</span>
+                        <div class="pagination-controls">
+                            <button class="btn btn-secondary btn-sm" id="btn-prev-page" disabled>Anterior</button>
+                            <span id="current-page-num">Página 1</span>
+                            <button class="btn btn-secondary btn-sm" id="btn-next-page" disabled>Siguiente</button>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Tab: Datos Corregidos -->
+            <div id="tab-corregidos" class="tab-content hidden">
+                <section class="results-section">
+                    <div class="results-header">
+                        <div class="results-title">
+                            <h3><i data-lucide="file-check" style="color: #34D399"></i> Registros Corregidos y Limpios</h3>
+                            <span class="badge badge-success" id="badge-corregidos">0 registros</span>
+                        </div>
+                        <div class="results-controls">
+                            <div class="search-box">
+                                <i data-lucide="search"></i>
+                                <input type="text" id="search-corregidos" placeholder="Buscar en datos limpios...">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="table-wrapper">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>TIPO DOC</th>
+                                    <th>DOCUMENTO</th>
+                                    <th>AFILIADO</th>
+                                    <th>COD CUPS</th>
+                                    <th>DIAGNÓSTICO CIE-10</th>
+                                    <th>FECHA ATENCIÓN</th>
+                                    <th>ESTADO</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-body-corregidos">
+                                <tr><td colspan="8" class="empty-table-msg">Sin registros corregidos.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="pagination-bar">
+                        <span id="page-info-corregidos">Mostrando 0 registros</span>
+                        <div class="pagination-controls">
+                            <button class="btn btn-secondary btn-sm" id="btn-prev-corregidos" disabled>Anterior</button>
+                            <span id="page-num-corregidos">Página 1</span>
+                            <button class="btn btn-secondary btn-sm" id="btn-next-corregidos" disabled>Siguiente</button>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Tab: Log Inconsistencias -->
+            <div id="tab-log" class="tab-content hidden">
+                <section class="results-section">
+                    <div class="results-header">
+                        <div class="results-title">
+                            <h3><i data-lucide="alert-triangle" style="color: #FBBF24"></i> Log Detallado de Inconsistencias & Errores</h3>
+                            <span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #FBBF24" id="badge-log">0 errores</span>
+                        </div>
+                        <div class="results-controls">
+                            <div class="search-box">
+                                <i data-lucide="search"></i>
+                                <input type="text" id="search-log" placeholder="Buscar en log de errores...">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="table-wrapper">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>FILA #</th>
+                                    <th>CAMPO AFECTADO</th>
+                                    <th>VALOR ORIGINAL (CRUDO)</th>
+                                    <th>VALOR CORREGIDO</th>
+                                    <th>REGLA APLICADA / INCONSISTENCIA</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-body-log">
+                                <tr><td colspan="5" class="empty-table-msg">Sin inconsistencias encontradas.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="pagination-bar">
+                        <span id="page-info-log">Mostrando 0 registros</span>
+                        <div class="pagination-controls">
+                            <button class="btn btn-secondary btn-sm" id="btn-prev-log" disabled>Anterior</button>
+                            <span id="page-num-log">Página 1</span>
+                            <button class="btn btn-secondary btn-sm" id="btn-next-log" disabled>Siguiente</button>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Script App Logic -->
+    <script src="app.js"></script>
+</body>
+</html>
